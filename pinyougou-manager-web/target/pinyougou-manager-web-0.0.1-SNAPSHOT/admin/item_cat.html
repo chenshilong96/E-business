@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- 页面meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>商品分类管理</title>
+    <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport">
+    <link rel="stylesheet" href="../plugins/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../plugins/adminLTE/css/AdminLTE.css">
+    <link rel="stylesheet" href="../plugins/adminLTE/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="../css/style.css">
+	<script src="../plugins/jQuery/jquery-2.2.3.min.js"></script>
+    <script src="../plugins/bootstrap/js/bootstrap.min.js"></script>
+  
+  	<!-- select2多选下拉列表组件 -->
+	<link rel="stylesheet" href="../plugins/select2/select2.css" />
+	<link rel="stylesheet" href="../plugins/select2/select2-bootstrap.css" />
+	<script src="../plugins/select2/select2.min.js" type="text/javascript"></script>
+	
+	
+	 <!-- 引入AngularJS的必须文件,pagination -->
+	<script src="../plugins/angularjs/angular.min.js"></script>
+	<script>
+		var app = angular.module('pinyougou',[]);
+		app.controller('itemCatController',function($http,$scope){
+			
+			//上级ID
+			$scope.parentId = 0;
+			
+			
+			//查询一级分类
+			$scope.findByParentId = function(parentId){
+				
+				$scope.parentId = parentId;
+				
+				$http.get('../item/findByParentId.do?parentId='+parentId).success(
+					function(response){
+						$scope.list = response;
+					}		
+				);
+			}
+			//设置初始级别
+			$scope.grade = 1;
+			//用户每点一次‘下一级’级别加1
+			$scope.gradeValue = function(value){
+				$scope.grade = value;
+			}
+			//根据级别来设置面包屑
+			$scope.selectItemCat = function(entity){
+				
+				if($scope.grade == 1){ 			//级别为1时，2，3级面包屑为空
+					$scope.entity_1 = null;
+					$scope.entity_2 = null;
+				}
+				
+				if($scope.grade == 2){			//级别为2时，2级面包屑为上一级的实体，3级面包屑为空
+					$scope.entity_1 = entity;
+					$scope.entity_2 = null;
+				}
+				
+				if($scope.grade == 3){			//级别为3时，2级面包屑布米那，3级面包屑为二级面包屑的实体
+					$scope.entity_2 = entity;
+				}
+				
+				$scope.findByParentId(entity.id)
+			}
+			
+			//配置模板下拉列表
+			$scope.options = {data:[]};
+			 $scope.findTemplateIdList = function(){
+				$http.get('../item/findTemplateIds.do').success(
+					function(response){
+						$scope.options = {data:response};
+					}		
+				);
+			} 
+			
+			
+			//新增商品分类
+			var sou = null;
+			$scope.save = function(){
+				
+				if($scope.entity.id!=null){
+					//更新分类
+					sou = 'update';
+				}else{
+					//保存分类
+					sou = 'add';
+				}
+				$scope.entity.parentId = $scope.parentId;
+				$http.post('../item/'+sou+'.do',$scope.entity).success(
+					function(response){
+						if(response.success){
+							alert(response.message);
+						}else{
+							alert(response.message);
+						}
+					}
+					
+				);
+			}
+			
+			//根据ID查询分类
+			$scope.findOne = function(id){
+				$http.get('../item/findOne.do?id='+id).success(
+					function(response){
+						$scope.entity = response;
+						$scope.entity.name = response.name;
+						$scope.entity.typeId = response.typeId;
+					}		
+				);
+			}
+			
+			//批量删除分类
+			$scope.deleteIds = [];
+			$scope.getId = function($event,id){
+				if($event.target.checked){
+					$scope.deleteIds.push(id);
+				}else{
+					var index = $scope.deleteIds.indexOf(id);
+					$scope.deleteIds.splice(index,1);
+				}
+			}
+			
+			$scope.delete = function(){
+				$http.get('../item/delete.do?ids='+$scope.deleteIds).success(
+					function(response){
+						if(response.success){
+							alert(response.message);
+						}else{
+							alert(response.message);
+						}
+					}	
+				);
+			}
+			
+		});
+	</script>
+	
+	<!-- 该Js必须在app后引入，它和上边的select2多选列表属于一组 -->
+ 	<script type="text/javascript" src="../js/angular-select2.js">  </script>
+</head>
+
+<body class="hold-transition skin-red sidebar-mini" ng-app="pinyougou" ng-controller="itemCatController" ng-init="findByParentId(0);findTemplateIdList()">
+  <!-- .box-body -->
+                
+                    <div class="box-header with-border">
+                        <h3 class="box-title">商品分类管理     {{deleteIds}}
+                       	</h3>
+                    </div>
+
+                    <div class="box-body">
+                  			 <ol class="breadcrumb">	                        	
+                        		<li>
+		                        	<a href="#" ng-click="gradeValue(1);selectItemCat({id:0})" >顶级分类列表</a> 
+		                        </li>
+		                        <li>
+		                       		<a href="#" ng-click="gradeValue(2);selectItemCat(entity_1)" >{{entity_1.name}}</a>
+		                        </li>
+		                        <li>
+		                        	<a href="#" ng-click="gradeValue(3);selectItemCat(entity_2)" >{{entity_2.name}}</a>
+		                        </li>
+	                        </ol>
+
+                        <!-- 数据表格 -->
+                        <div class="table-box">
+							
+                            <!--工具栏-->
+                            <div class="pull-left">
+                                <div class="form-group form-inline">
+                                    <div class="btn-group">
+                                    	<span ng-if="grade!=3">
+                                        <button type="button" class="btn btn-default" title="新建" data-toggle="modal" data-target="#editModal"  ><i class="fa fa-file-o" ng-click="entity={}"></i> 新建</button>
+                                        </span>
+                                        <button type="button" class="btn btn-default" title="删除" ng-click="delete()" ><i class="fa fa-trash-o"></i> 删除</button>
+                                        <button type="button" class="btn btn-default" title="刷新" ><i class="fa fa-check"></i> 刷新</button>
+                                       
+                                    </div>
+                                </div>
+                            </div>                          
+                       		
+                        
+			                <!--数据列表-->
+			                  <table id="dataList" class="table table-bordered table-striped table-hover dataTable">
+			                      <thead>
+			                          <tr>
+			                              <th class="" style="padding-right:0px">
+			                                  <input type="checkbox" class="icheckbox_square-blue">
+			                              </th> 
+										  <th class="sorting_asc">分类ID</th>
+									      <th class="sorting">分类名称</th>									   
+									      <th class="sorting">类型模板ID</th>
+									     						
+					                      <th class="text-center">操作</th>
+			                          </tr>
+			                      </thead>
+			                      <tbody>
+			                          <tr ng-repeat="entity in list">
+			                              <td><input ng-click="getId($event,entity.id)" type="checkbox" ></td>			                              
+				                          <td>{{entity.id}}</td>
+									      <td>{{entity.name}}</td>									    
+									      <td>
+									      	{{entity.typeId}}    
+									      </td>									      
+		                                  <td class="text-center">
+		                                  	<span ng-if="grade!=3">
+		                                  		<button type="button" class="btn bg-olive btn-xs" ng-click="gradeValue(grade+1);selectItemCat(entity)" >查询下级</button>
+		                                  	</span>
+		                                       		                                     
+		                                 	  <button type="button" class="btn bg-olive btn-xs" data-toggle="modal" data-target="#editModal" ng-click="findOne(entity.id)" >修改</button>                                           
+		                                  </td>
+			                          </tr>
+									 
+			                      </tbody>
+			                  </table>
+			                  <!--数据列表/-->                      
+						
+                        </div>
+                        <!-- 数据表格 /-->
+                        
+                        
+                        
+                     </div>
+                    <!-- /.box-body -->
+              
+                                
+<!-- 编辑窗口 -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog" >
+	<div class="modal-content">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+			<h3 id="myModalLabel">商品分类编辑</h3>
+		</div>
+		<div class="modal-body">							
+			
+			<table class="table table-bordered table-striped"  width="800px">
+				<tr>
+		      		<td>上级商品分类</td>
+		      		<td>
+		      		   {{entity_1.name}} >>  {{entity_2.name}}
+		      		</td>
+		      	</tr>
+		      	<tr>
+		      		<td>商品分类名称</td>
+		      		<td><input  class="form-control" placeholder="商品分类名称" ng-model="entity.name">  </td>
+		      	</tr>			  
+		      	<tr>
+		      		<td>类型模板</td>
+		      		<td>
+		      			<input  select2 config="options" placeholder="商品类型模板" select2-model="entity.option"  ng-model="entity.typeId" class="form-control" type="text"/>
+		      		</td>		      		      		
+		      	</tr>		      	
+			 </table>				
+			
+		</div>
+		<div class="modal-footer">						
+			<button class="btn btn-success" data-dismiss="modal" aria-hidden="true" ng-click="save()">保存</button>
+			<button class="btn btn-default" data-dismiss="modal" aria-hidden="true">关闭</button>
+		</div>
+	  </div>
+	</div>
+</div>
+</body>
+</html>

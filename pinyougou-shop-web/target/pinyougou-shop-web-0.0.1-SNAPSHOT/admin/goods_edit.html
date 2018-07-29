@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- 页面meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>商品编辑</title>
+    <!-- Tell the browser to be responsive to screen width -->
+    <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport">
+  
+    <link rel="stylesheet" href="../plugins/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../plugins/adminLTE/css/AdminLTE.css">
+    <link rel="stylesheet" href="../plugins/adminLTE/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="../css/style.css">
+	<script src="../plugins/jQuery/jquery-2.2.3.min.js"></script>
+    <script src="../plugins/bootstrap/js/bootstrap.min.js"></script>
+    
+    <!-- 富文本编辑器 -->
+	<link rel="stylesheet" href="../plugins/kindeditor/themes/default/default.css" />
+	<script charset="utf-8" src="../plugins/kindeditor/kindeditor-min.js"></script>
+	<script charset="utf-8" src="../plugins/kindeditor/lang/zh_CN.js"></script>
+    <!-- 引入AngularJS的必须文件 -->
+	<script src="../plugins/angularjs/angular.min.js"></script>
+    <!-- select2多选下拉列表组件 -->
+	<link rel="stylesheet" href="../plugins/select2/select2.css" />
+	<link rel="stylesheet" href="../plugins/select2/select2-bootstrap.css" />
+	<script src="../plugins/select2/select2.min.js" type="text/javascript"></script>
+	
+	
+    <script>
+    	var app = angular.module('pinyougou',[]);
+    	app.controller('goodsController',function($scope,$http,$location){
+    		
+    		
+    		//添加商品
+    		$scope.add = function(){
+    			if(id==null){
+    				//添加
+    				$scope.entity.goodsDesc.introduction = editor.html();
+        			$http.post('../goods/add.do',$scope.entity).success(
+        				function(response){
+        					if(response.success){
+        						//保存成功
+        						location.href="goods.html";//跳转到商品列表页
+
+        					}else{
+        						//保存失败
+        						alert(response.message);
+        					}
+        					
+        					$scope.entity = {};
+        					
+        				}
+        				
+        			);
+    			}else{
+    				//修改
+        			$http.post('../goods/update.do',$scope.entity).success(
+        				function(response){
+        					if(response.success){
+        						//修改成功
+        						location.href="goods.html";//跳转到商品列表页
+        					}else{
+        						//修改失败
+        						alert(response.message);
+        					}
+        					
+        				}
+        				
+        			);
+    			}
+    			
+    		}
+    		
+    		//上传图片
+    		$scope.uploadFile = function(){
+    			var formData = new FormData();
+    			formData.append("file",file.files[0]);
+    			$http({
+    				method:'POST',
+    				url:'../upload.do',
+    				data:formData,
+    				headers:{'Content-Type':undefined},
+    				transformRequest:angular.identity
+    			}).success(
+    				function(response){
+    					if(response.success){
+    						$scope.image_entity.url=response.message;//设置文件地址
+    					}else{
+    						alert(response.message)
+    					}
+    				}		
+    			);
+    			
+    		}
+    		
+    		//保存图片
+    		$scope.entity = {goods:{},goodsDesc:{itemImages:[],specificationItems:[]}};
+    		$scope.add_image_entity = function(){
+    			$scope.entity.goodsDesc.itemImages.push($scope.image_entity);
+    			alert("保存成功");
+    		}
+    		
+    		//删除图片
+    		$scope.delete = function(index){
+    			$scope.entity.goodsDesc.itemImages.splice(index,1);
+    		}
+    		
+    		//一级分类下拉框
+    		$scope.selectItemCat1List = function(){
+    			$http.get('../itemCat/findByParentId.do?parentId=0').success(
+    				function(response){
+    					$scope.itemCat1List = response;
+    				}		
+    			);
+    		}
+    		//二级分类下拉框
+    		$scope.$watch('entity.goods.category1Id',function(newValue,oldValue){
+    			if (newValue === oldValue)return;
+    			$http.get('../itemCat/findByParentId.do?parentId='+newValue).success(
+        				function(response){
+        					$scope.itemCat2List = response;
+        				}		
+        			);
+    		});
+    		
+    		//三级分类下拉框
+    		$scope.$watch('entity.goods.category2Id',function(newValue,oldValue){
+    			if (newValue === oldValue)return;
+    			$http.get('../itemCat/findByParentId.do?parentId='+newValue).success(
+        				function(response){
+        					$scope.itemCat3List = response;
+        				}		
+        			);
+    		});
+    		
+    		//模板ID
+    		$scope.$watch('entity.goods.category3Id',function(newValue,oldValue){
+    			if (newValue === oldValue)return;
+    			$http.get('../itemCat/findOne.do?id='+newValue).success(
+        				function(response){
+        					$scope.entity.goods.typeTemplateId = response.typeId;
+        				}		
+        		);
+    		});
+    		
+    		//品牌
+    		$scope.$watch('entity.goods.typeTemplateId',function(newValue,oldValue){
+    			if (newValue === oldValue)return;
+    			$http.get('../itemCat/findBrandByTypeId.do?id='+newValue).success(
+        				function(response){
+        					$scope.typeTemplate = response;
+        					$scope.typeTemplate.brandIds = JSON.parse($scope.typeTemplate.brandIds);
+        					//扩展属性
+        					if(id==null){
+        						$scope.entity.goodsDesc.customAttributeItems = JSON.parse($scope.typeTemplate.customAttributeItems);
+        					}
+        		    		
+        				}		
+        		);
+    			
+    			
+    			//查询规格列表
+    			$http.get('../itemCat/findSpecList.do?id='+newValue).success(
+    				function(response){
+    					$scope.specList = response;
+    				}		
+    			);
+    			
+    		});
+    		
+    		$scope.searchObject = function(list,key,keyValue){
+    			for(var i=0;i<list.length;i++){
+    				if(list[i][key]==keyValue){
+    					//存在
+    					return list[i];
+    				}
+    			}
+    			
+    			//不存在
+				return null;
+    		}
+    		
+    		$scope.updateSpecAttribute = function($event,name,value){
+    			//先查询是否存在
+    			var object = $scope.searchObject($scope.entity.goodsDesc.specificationItems,'attributeName',name);
+    			if(object!=null){
+    				//attributeName(规格名称)已经存在，直接添加attributeValue(规格选项)
+    				if($event.target.checked){
+    					//选中
+        				object.attributeValue.push(value);
+    				}else{
+    					//取消勾选
+    					var index = object.attributeValue.indexOf(value);
+    					
+    					object.attributeValue.splice(index,1);
+    					//如果选项都取消了，将此条记录移除
+    					if(object.attributeValue.length==0){
+    						$scope.entity.goodsDesc.specificationItems.splice(
+    								$scope.entity.goodsDesc.specificationItems.indexOf(object),1);
+    					}
+    				}
+    			}else{
+    				//attributeName(规格名称)不存在，需要先添加attributeName(规格名称)
+    				$scope.entity.goodsDesc.specificationItems.push({"attributeName":name,"attributeValue":[value]});
+    			}
+    				
+    			
+    		}
+    		
+    		//创建SKU列表
+    		
+    		$scope.createItemList=function(){
+    			$scope.entity.itemList = [{spec:{},price:0,num:99999,status:'0',isDefault:'0'}];
+    			var item = $scope.entity.goodsDesc.specificationItems;
+    			//将规格信息添加到SKU的列表中
+    			for(var i=0;i<item.length;i++){
+    				$scope.entity.itemList = addColumn($scope.entity.itemList,item[i].attributeName,item[i].attributeValue);
+    			}
+    			
+    		}
+    		//添加列值
+    		addColumn = function(list,columnName,columnValues){
+    			var newList = [];
+    			for(var i=0;i<list.length;i++){
+    				var oldRow = list[i];
+    				for(var j=0;j<columnValues.length;j++){
+    					var newRow = JSON.parse(JSON.stringify(oldRow));
+    					newRow.spec[columnName] = columnValues[j];
+    					newList.push(newRow);
+    				}
+    			}
+    			return newList;
+    		}
+    		
+    		//更具商品ID查询商品
+    		var id = $location.search()['id'];
+    		$scope.findOne = function(){
+    			
+    			if(id==null){
+    				return ;
+    			}
+    			
+    			$http.get('../goods/findOne.do?id='+id).success(
+    				function(response){
+    					$scope.entity = response;
+    					//向富文本编辑器添加商品介绍
+    					editor.html($scope.entity.goodsDesc.introduction);
+    					//商品图片显示
+    					$scope.entity.goodsDesc.itemImages = JSON.parse($scope.entity.goodsDesc.itemImages);
+    					//商品扩展属性显示
+    					$scope.entity.goodsDesc.customAttributeItems = JSON.parse($scope.entity.goodsDesc.customAttributeItems);
+    					//商品规格显示
+    					$scope.entity.goodsDesc.specificationItems = JSON.parse($scope.entity.goodsDesc.specificationItems);
+    					//SKU列表显示
+    					for(var i=0;i<$scope.entity.itemList.length;i++){
+    						$scope.entity.itemList[i].spec = JSON.parse($scope.entity.itemList[i].spec);
+    					}
+    					
+    				}		
+    			);
+    		}
+    		
+    		//根据规格名称和选项名称返回是否被勾选
+    		$scope.checkAttributeValue = function(specName,optionName){
+    			var items = $scope.entity.goodsDesc.specificationItems;
+    			var object = $scope.searchObject(items,'attributeName',specName);
+    			if(object==null){
+    				return false;
+    			}else{
+    				if(object.attributeValue.indexOf(optionName)>=0){
+    					return true;
+    				}else{
+    					return false;
+    				}
+    				
+    			}
+    			 			
+    		}
+    		
+    		
+    	});
+    </script>
+    
+    <!-- 该Js必须在app后引入，它和上边的select2多选列表属于一组 -->
+	<script type="text/javascript" src="../js/angular-select2.js">  </script>   
+</head>
+
+<body class="hold-transition skin-red sidebar-mini" ng-app="pinyougou" ng-controller="goodsController" ng-init="selectItemCat1List();findOne()" >
+
+            <!-- 正文区域 -->
+            <section class="content">
+
+                <div class="box-body">
+
+                    <!--tab页-->
+                    <div class="nav-tabs-custom">
+
+                        <!--tab头-->
+                        <ul class="nav nav-tabs">                       		
+                            <li class="active">
+                                <a href="#home" data-toggle="tab">商品基本信息</a>                                                        
+                            </li>   
+                            <li >
+                                <a href="#pic_upload" data-toggle="tab">商品图片</a>                                                        
+                            </li>    
+                            <li >
+                                <a href="#customAttribute" data-toggle="tab">扩展属性</a>                                                        
+                            </li>     
+                            <li >
+                                <a href="#spec" data-toggle="tab" >规格</a>                                                        
+                            </li>                       
+                        </ul>
+                        <!--tab头/-->
+						
+                        <!--tab内容-->
+                        <div class="tab-content">
+
+                            <!--表单内容-->
+                            <div class="tab-pane active" id="home">
+                                <div class="row data-type">                                  
+								   <div class="col-md-2 title">商品分类</div>
+		                          
+		                           	  <div class="col-md-10 data">
+		                           	  	<table>
+		                           	  		<tr>
+		                           	  			<td>
+		                           	  				<select class="form-control" ng-model="entity.goods.category1Id" ng-options="item.id as item.name for item in itemCat1List" >														
+		                           	  				</select>
+		                              			</td>
+		                              			<td>
+		                           	  				<select class="form-control select-sm" ng-model="entity.goods.category2Id" ng-options="item.id as item.name for item in itemCat2List" ></select>
+		                              			</td>
+		                              			<td>
+		                           	  				<select class="form-control select-sm" ng-model="entity.goods.category3Id" ng-options="item.id as item.name for item in itemCat3List" ></select>
+		                              			</td>
+		                              			<td>
+		                           	  				模板ID:{{entity.goods.typeTemplateId}}
+		                              			</td>
+		                           	  		</tr>
+		                           	  	</table>
+		                              	
+		                              </div>	                              
+		                          	  
+									
+		                           <div class="col-md-2 title">商品名称</div>
+		                           <div class="col-md-10 data">
+		                               <input type="text" class="form-control"    placeholder="商品名称"  ng-model="entity.goods.goodsName"  value="">
+		                           </div>
+		                           
+		                           <div class="col-md-2 title">品牌</div>
+		                           <div class="col-md-10 data">
+		                              <select class="form-control" ng-model="entity.goods.brandId" ng-options=" pojo.id as pojo.text for pojo in typeTemplate.brandIds" ></select>
+		                           </div>
+		
+								   <div class="col-md-2 title">副标题</div>
+		                           <div class="col-md-10 data">
+		                               <input type="text" class="form-control"   placeholder="副标题" ng-model="entity.goods.caption" value="">
+		                           </div>
+		                           
+		                           <div class="col-md-2 title">价格</div>
+		                           <div class="col-md-10 data">
+		                           	   <div class="input-group">
+			                          	   <span class="input-group-addon">¥</span>
+			                               <input type="text" class="form-control"  placeholder="价格" ng-model="entity.goods.price" value="">
+		                           	   </div>
+		                           </div>
+		                           
+		                           <div class="col-md-2 title editer">商品介绍</div>
+                                   <div class="col-md-10 data editer">
+                                       <textarea name="content" style="width:800px;height:400px;visibility:hidden;" ></textarea>
+                                   </div>
+		                           
+		                           <div class="col-md-2 title rowHeight2x">包装列表</div>
+		                           <div class="col-md-10 data rowHeight2x">
+		                               
+		                           	<textarea rows="4"  class="form-control"   placeholder="包装列表" ng-model="entity.goodsDesc.packageList" ></textarea>
+		                           </div>
+		                           
+		                           <div class="col-md-2 title rowHeight2x">售后服务</div>
+		                           <div class="col-md-10 data rowHeight2x">
+		                               <textarea rows="4"  class="form-control"    placeholder="售后服务" ng-model="entity.goodsDesc.saleService"></textarea>
+		                           </div>                        
+                                  
+                                    
+                                </div>
+                            </div>
+                            
+                            <!--图片上传-->
+                            <div class="tab-pane" id="pic_upload">
+                                <div class="row data-type">                                  
+								 <!-- 颜色图片 -->
+								 <div class="btn-group">
+					                 <button type="button" class="btn btn-default" title="新建" data-target="#uploadModal"  data-toggle="modal"   ng-click="image_entity={}" ><i class="fa fa-file-o"></i> 新建</button>
+                             		                 
+					             </div>
+								 
+								 <table class="table table-bordered table-striped table-hover dataTable">
+					                    <thead>
+					                        <tr>
+					                            
+											    <th class="sorting">颜色</th>
+											    <th class="sorting">图片</th>
+												<th class="sorting">操作</th>
+							            </thead>
+					                    <tbody>
+					                      <tr ng-repeat="pojo in entity.goodsDesc.itemImages">					                           
+									            <td>
+									            	{{pojo.color}}
+									            </td>
+									            <td>
+									           		<img alt="" src="{{pojo.url}}" width="100px" height="100px">	            	 
+									            </td>
+												 <td> <button type="button" class="btn btn-default" title="删除" ng-click="delete($index)" ><i class="fa fa-trash-o"></i> 删除</button></td> 
+					                      </tr>
+					                    </tbody>
+								 </table> 
+								  
+                                </div>
+                            </div>
+                           
+                           
+                            <!--扩展属性-->
+                            <div class="tab-pane" id="customAttribute">
+                                <div class="row data-type">                                
+	                                <div ng-repeat="pojo in entity.goodsDesc.customAttributeItems ">
+		                                <div class="col-md-2 title">{{pojo.text}}</div>
+				                        <div class="col-md-10 data">
+				                              <input class="form-control" placeholder="{{pojo.text}}" ng-model="pojo.value" >	            	 
+				                        </div>
+	                                </div>       
+														
+                                </div>
+                            </div>
+                      
+                            <!--规格-->
+                            <div class="tab-pane" id="spec">
+                            	<div class="row data-type">
+	                            	<div class="col-md-2 title">是否启用规格</div>
+			                        <div class="col-md-10 data">
+			                        	<input type="checkbox"  ng-model="entity.goods.isEnableSpec" ng-true-value="1" ng-false-value="0" >			                           
+			                        </div>
+                            	</div>
+                            	<p>
+                            	<div>
+                            	
+	                                <div class="row data-type">
+	                                
+		                                <div ng-repeat="pojo in specList">
+			                                <div class="col-md-2 title">{{pojo.text}}</div>
+					                        <div class="col-md-10 data">
+					                               
+					                            <span ng-repeat="option in pojo.options">
+					                            	<input  type="checkbox" ng-click="updateSpecAttribute($event,pojo.text,option.optionName);createItemList()" 
+					                            	 ng-checked="checkAttributeValue(pojo.text,option.optionName)" >{{option.optionName}}					                            				                            	
+					                            </span>  	
+																								
+					                            	
+					                        </div>
+		                                </div>   
+										
+		                                                                                  
+	                                </div>
+									
+	                                
+	                                <div class="row data-type" ng-if="entity.goods.isEnableSpec==1">
+	                                	 <table class="table table-bordered table-striped table-hover dataTable">
+						                    <thead>
+						                        <tr>					                          
+												    <th class="sorting" ng-repeat="item in entity.goodsDesc.specificationItems">{{item.attributeName}}</th>
+												    <th class="sorting">价格</th>
+												    <th class="sorting">库存</th>
+												    <th class="sorting">是否启用</th>
+												    <th class="sorting">是否默认</th>
+											    </tr>
+								            </thead>
+						                    <tbody>
+						                      <tr ng-repeat=" pojo in entity.itemList">					                           
+										            <td ng-repeat="item in entity.goodsDesc.specificationItems">
+										            	{{pojo.spec[item.attributeName]}}
+										            </td>
+													
+										            <td>
+										           		<input class="form-control"  placeholder="价格" ng-model="pojo.price">
+										            </td>
+										            <td>
+										            	<input class="form-control" placeholder="库存数量" ng-model="pojo.num">
+										            </td>
+										            <td>
+										             	<input type="checkbox" ng-model="pojo.status"  ng-true-value="1" ng-false-value="0"	>
+										            </td>
+										            <td>
+										                <input type="checkbox" ng-model="pojo.isDefault"  ng-true-value="1" ng-false-value="0" >									             	
+										            </td>
+						                      </tr>
+											 
+											  
+						                    </tbody>
+									 	</table>
+								
+	                                </div>
+	                                
+	                            </div>
+                            </div>
+                            
+                        </div>
+                        <!--tab内容/-->
+						<!--表单内容/-->
+							 
+                    </div>
+                 	
+                 	
+                 	
+                 	
+                   </div>
+                  <div class="btn-toolbar list-toolbar">
+				      <button class="btn btn-primary" ng-click="add()" ><i class="fa fa-save"></i>保存</button>
+				      <a  href="goods.html" class="btn btn-default" >返回列表</a>
+				  </div>
+			
+            </section>
+            
+            
+<!-- 上传窗口 -->
+<div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog" >
+	<div class="modal-content">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+			<h3 id="myModalLabel">上传商品图片</h3>
+		</div>
+		<div class="modal-body">							
+			
+			<table class="table table-bordered table-striped">
+		      	<tr>
+		      		<td>颜色</td>
+		      		<td><input  class="form-control" placeholder="颜色" ng-model="image_entity.color" >  </td>
+		      	</tr>			    
+		      	<tr>
+		      		<td>商品图片</td>
+		      		<td>
+						<table>
+							<tr>
+								<td>
+								<input type="file" id="file" />				                
+					                <button class="btn btn-primary" type="button" ng-click="uploadFile()" >
+				                   		上传
+					                </button>	
+					            </td>
+								<td>
+									<img  src="{{image_entity.url}}" width="200px" height="200px">
+								</td>
+							</tr>						
+						</table>
+		      		</td>
+		      	</tr>		      	
+			 </table>				
+			
+		</div>
+		<div class="modal-footer">						
+			<button class="btn btn-success"  data-dismiss="modal" aria-hidden="true" ng-click="add_image_entity()" >保存</button>
+			<button class="btn btn-default" data-dismiss="modal" aria-hidden="true">关闭</button>
+		</div>
+	  </div>
+	</div>
+</div>
+
+            
+            <!-- 正文区域 /-->
+<script type="text/javascript">
+
+	var editor;
+	KindEditor.ready(function(K) {
+		editor = K.create('textarea[name="content"]', {
+			allowFileManager : true
+		});
+	});
+
+</script>
+       
+</body>
+
+</html>
